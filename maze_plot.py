@@ -35,10 +35,11 @@ def get_policy_table(maze, policy_net):
     return policy_table
 
 
-def draw_policy(maze, policy_table):
+def draw_policy(maze, policy_table, targets=[]):
     """Given a maze and a policy_table array of shape (*maze, 4)
     This visually represents the probability of each action at each state 
     by drawning arrows, whose opacity corresponds to the respective probability.
+    Also pass targets list: [[x1,y1], [x2,y2], ...]
     
     If the policy is a neural network, get the policy_table by using get_policy_table
     Example usage:
@@ -47,7 +48,14 @@ def draw_policy(maze, policy_table):
     """
     # Draw the maze
     padded_maze = np.pad(maze, 1, 'constant', constant_values=1)
-    plt.imshow(padded_maze, cmap='gray_r')
+    
+    im = 255*(1-np.stack([padded_maze]*3, axis=2))
+    
+    # Draw red target pixels:
+    for target in targets:
+        im[tuple(x+1 for x in target)] = [255,180,180]
+    
+    plt.imshow(im)
     
 #     # Handling if maze is np array
 #     if type(maze) != torch.Tensor:
@@ -65,6 +73,7 @@ def draw_policy(maze, policy_table):
 
         # Draw arrows:
         color = 'r'
+        
         # Up
         plt.arrow(*reversed(agent_position+1), 0, -.12, head_width=.25, lw=3, 
                   ec='none', fc=color, alpha=float(action_probs[0]))
