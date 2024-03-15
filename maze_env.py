@@ -92,6 +92,9 @@ class MazeEnv:
         return self.get_state(), reward, done
         
     def display(self):
+        """
+        Visualize the maze and the location of the agent and target square
+        """
         maze = self.maze.numpy().copy()
         padded_maze = np.pad(maze, 1, 'constant', constant_values=1)
         im = 255*(1-np.stack([padded_maze]*3, axis=2))
