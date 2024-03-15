@@ -6,11 +6,12 @@ action_names = {0: 'Up', 1: 'Down', 2: 'Left', 3: 'Right'}
 
 class MazeEnv:
     
-    def __init__(self, maze, target_position=(0,0), rewards={}):
+    def __init__(self, maze, targets=[(0,0)], rewards={}):
         """
         Initializes the maze environment.
         Parameters:
         - maze: A numpy array representing the maze, where 1's are walls.
+        - targets: A list of target locations which are represented by tuples
         - rewards: A dictonary with the rewards for each event. Supported events and their default values:
             - 'step': Default reward, a small penalty for not reaching the target yet to encourage shorter solutions. 
                 Default value: -0.01
@@ -22,7 +23,7 @@ class MazeEnv:
         self.maze = torch.tensor(maze, dtype=torch.float32)
         self.n_rows, self.n_cols = self.maze.shape
         self.agent_position = None
-        self.target_position = target_position
+        self.target_positions = targets
         self.reset()
         self.step_reward   = rewards.get('step', -0.01)
         self.wall_reward   = rewards.get('hit_wall', -0.1)
@@ -34,13 +35,14 @@ class MazeEnv:
         Resets the environment to start a new episode.
         """
         # Get free spaces that are not walls or the target
-        self.maze[self.target_position] = 1
-        free_spaces = torch.where(self.maze == 0)
-        self.maze[self.target_position] = 0
+        maze_temp = copy.deepcopy(self.maze)
+        for target in self.target_positions:
+            maze_temp[target] = 1
+        free_spaces = torch.where(maze_temp == 0)
         
         # Randomly place the agent in a free space (0)
         idx = np.random.choice(len(free_spaces[0]))
-        self.agent_position = (free_spaces[0][idx], free_spaces[1][idx])
+        self.agent_position = (int(free_spaces[0][idx]), int(free_spaces[1][idx]))
         return self.get_state()
 
     def get_state(self):
@@ -60,6 +62,11 @@ class MazeEnv:
         Note: The verticle coordinates of the actions may appear to be backwards,
         but this reflects the way they appear in the array and thus in imshow: 
         Namely, higher row-index values appear lower in the picture.
+        
+        Returns: (state, reward, done)
+        - state: np.array with shape (*maze.shape, 2)
+        - reward: float
+        - done: bool (use this to stop your episode)
         """
         # Define action effects
         action_effects = {
@@ -78,7 +85,7 @@ class MazeEnv:
         done = False
 
         # Check if new position is the target
-        if new_position == self.target_position:
+        if new_position in self.target_positions:
             reward = self.target_reward  # Positive reward for reaching the target
             done = True
         # Check if new position is within bounds and not a wall
@@ -92,17 +99,15 @@ class MazeEnv:
         return self.get_state(), reward, done
         
     def display(self):
-        """
-        Visualize the maze and the location of the agent and target square
-        """
         maze = self.maze.numpy().copy()
         padded_maze = np.pad(maze, 1, 'constant', constant_values=1)
         im = 255*(1-np.stack([padded_maze]*3, axis=2))
         
         # Draw blue agent pixel:
         im[tuple(x+1 for x in self.agent_position)] = [0,100,255]
-        # Draw red target pixel:
-        im[tuple(x+1 for x in self.target_position)] = [255,0,0]
+        # Draw red target pixels:
+        for pos in self.target_positions:
+            im[pos[0]+1, pos[1]+1] = [255,0,0]
         
         plt.figure(figsize=[2,2])
         plt.imshow(im.astype(np.uint8))
